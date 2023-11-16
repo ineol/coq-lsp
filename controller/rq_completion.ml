@@ -79,8 +79,17 @@ let validate_line ~(doc : Fleche.Doc.t) ~line =
 let validate_position ~doc ~point =
   let line, char = point in
   Option.bind (validate_line ~doc ~line) (fun line ->
-      Option.bind (Coq.Utf8.index_of_char ~line ~char) (fun index ->
-          Some (String.get line index)))
+      (* char is in utf-16 code-points, we need to translate to byte *)
+      let byte_idx = ref 0 in
+      let char_count = ref 0 in
+      while !byte_idx < String.length line && !char_count < char do
+        let char = String.get_utf_8_uchar line !byte_idx in
+        byte_idx := Coq.Utf8.next line !byte_idx;
+        char_count := !char_count + Uchar.utf_16_byte_length (Uchar.utf_decode_uchar char);
+        ()
+      done;
+      let char = if !byte_idx < String.length line then Some !byte_idx else None in
+      Option.bind char (fun index -> Some (String.get line index)))
 
 let get_char_at_point ~(doc : Fleche.Doc.t) ~point =
   let line, char = point in
