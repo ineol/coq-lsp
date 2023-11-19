@@ -38,6 +38,8 @@
 type char = int
 type index = int
 
+val next : string -> index -> index
+
 (** Byte index to UTF-8 character position *)
 val char_of_index : line:string -> byte:index -> char option
 
