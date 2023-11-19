@@ -1,0 +1,5 @@
+(executable
+ (name unittests)
+ (public_name unittests)
+ (link_flags -linkall)
+ (libraries alcotest controller))
