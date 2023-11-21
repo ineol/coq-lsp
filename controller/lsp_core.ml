@@ -291,6 +291,20 @@ let do_shutdown = Rq.Action.now (Ok `Null)
 let do_position_request ~postpone ~params ~handler =
   let uri, version = Helpers.get_uri_oversion params in
   let point = Helpers.get_position params in
+  let handler ~(doc: Fleche.Doc.t) ~point = 
+    let line, char = point in
+    let len = Array.length doc.contents.lines in
+      (* If the line is past the last line, we set it to the last position of the document *)
+    let line, char =
+      if line >= len then
+        (if len > 0 then len - 1 else 0), max_int
+      else
+        line, char
+    in
+    let contents = Array.get doc.contents.lines line in
+    let char = Coq.Utf8.get_byte_offset_from_utf16_pos contents char in
+    handler ~doc ~point:(line, char)
+  in
   Rq.Action.Data
     (Request.Data.PosRequest { uri; handler; point; version; postpone })
 

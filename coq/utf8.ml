@@ -73,12 +73,13 @@ let char_of_index ~line ~byte =
 let get_char_from_utf16_pos line (char: int) =
  let byte_idx = ref 0 in
  let utf16_char_count = ref 0 in
- while !byte_idx < String.length line && !utf16_char_count < char do
+ let len = String.length line in
+ while !byte_idx < len && !utf16_char_count < char do
    let ch = String.get_utf_8_uchar line !byte_idx in
    byte_idx := Coq.Utf8.next line !byte_idx;
    let code_unit_count = Uchar.utf_16_byte_length (Uchar.utf_decode_uchar ch) / 2 in
    utf16_char_count := !utf16_char_count + code_unit_count;
    ()
  done;
- if !byte_idx < String.length line then Some !byte_idx else None
+ !byte_idx
 
