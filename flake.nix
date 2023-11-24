@@ -90,7 +90,7 @@
           packages = l.attrValues {
             inherit (config.treefmt.build) wrapper;
             inherit (pkgs) dune_3 nodejs dune-release;
-            inherit (ocamlPackages) ocaml ocaml-lsp alcotest;
+            inherit (ocamlPackages) ocaml ocamlformat ocaml-lsp ppx_inline_test;
           };
         };
       };
