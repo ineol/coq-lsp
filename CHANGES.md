@@ -10,9 +10,9 @@
  - fix hover position computation on the presence of Utf characters
    (@ejgallego, #597, thanks to Pierre Courtieu for the report and
    example, closes #594)
- - workaround seemingly VSCode activation bug that prevented extension
-   activation (@ejgallego @r3m0t, #598, cc #596, reported by Théo
-   Zimmerman)
+ - fix activation bug that prevented extension activation for `.mv`
+   files, see discussion in the issues about the upstream policy
+   (@ejgallego @r3m0t, #598, cc #596, reported by Théo Zimmerman)
  - require VSCode >= 1.82 in package.json . Our VSCode extension uses
    `vscode-languageclient` 9 which imposes this. (@ejgallego, #599,
    thanks to Théo Zimmerman for the report)
@@ -32,6 +32,12 @@
  - [plugins] New `astdump` plugin to dump AST of files into JSON and
    SEXP (@ejgallego, #607)
  - errors on save where not properly caught (@ejgallego, #608)
+ - switch default of `goal_after_tactic` to `true` (@Alizter,
+   @ejgallego, cc: #614)
+ - error recovery: Recognize `Defined` and `Admitted` in lex recovery
+   (@ejgallego, #616)
+ - completion: correctly understand UTF-16 code points on completion
+   request (Léo Stefanesco, #613, fixes #531)
 
 # coq-lsp 0.1.8: Trick-or-treat
 -------------------------------

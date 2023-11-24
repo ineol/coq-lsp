@@ -102,7 +102,7 @@ module Node = struct
   end
 
   module Message = struct
-    type t = Lang.Range.t option * int * Pp.t
+    type t = Lang.Range.t Coq.Message.t
 
     let feedback_to_message ~lines (loc, lvl, msg) =
       (Coq.Utils.to_orange ~lines loc, lvl, msg)
@@ -126,7 +126,32 @@ module Node = struct
   (* let with_state f n = Option.map (fun x -> (x, n.state)) (f n) *)
 end
 
-module Diags = struct
+(** Diagnostics helper module *)
+module Diags : sig
+  val err : Lang.Diagnostic.Severity.t
+
+  (** Build simple diagnostic *)
+  val make :
+       ?extra:Lang.Diagnostic.Extra.t list
+    -> Lang.Range.t
+    -> Lang.Diagnostic.Severity.t
+    -> Pp.t
+    -> Lang.Diagnostic.t
+
+  (** Build advanced diagnostic with AST analysis *)
+  val error :
+    range:Lang.Range.t -> msg:Pp.t -> ast:Node.Ast.t -> Lang.Diagnostic.t
+
+  (** [of_messages drange msgs] process feedback messages, and convert some to
+      diagnostics based on user-config. Default range [drange] is used for
+      messages that have no range, usually this is set to the full node range. *)
+  val of_messages :
+       drange:Lang.Range.t
+    -> Node.Message.t list
+    -> Lang.Diagnostic.t list * Node.Message.t list
+end = struct
+  let err = Lang.Diagnostic.Severity.error
+
   let make ?extra range severity message =
     Lang.Diagnostic.{ range; severity; message; extra }
 
@@ -143,7 +168,7 @@ module Diags = struct
 
   let error ~range ~msg ~ast =
     let extra = extra_diagnostics_of_ast ast in
-    make ?extra range 1 msg
+    make ?extra range Lang.Diagnostic.Severity.error msg
 
   let of_feed ~drange (range, severity, message) =
     let range = Option.default drange range in
@@ -173,6 +198,7 @@ module Diags = struct
       else 3
     in
     let f (_, lvl, _) =
+      let lvl = Lang.Diagnostic.Severity.to_int lvl in
       if lvl = 2 then Both else if lvl < cutoff then Left else Right
     in
     let diags, messages = partition ~f fbs in
@@ -296,7 +322,7 @@ let empty_doc ~uri ~contents ~version ~env ~root ~nodes ~completed =
   { uri; contents; toc; version; env; root; nodes; diags_dirty; completed }
 
 let error_doc ~loc ~message ~uri ~contents ~version ~env ~completed =
-  let feedback = [ (loc, 1, Pp.str message) ] in
+  let feedback = [ (loc, Diags.err, Pp.str message) ] in
   let root = env.Env.init in
   let nodes = [] in
   (empty_doc ~uri ~version ~contents ~env ~root ~nodes ~completed, feedback)
@@ -304,7 +330,9 @@ let error_doc ~loc ~message ~uri ~contents ~version ~env ~completed =
 let conv_error_doc ~raw ~uri ~version ~env ~root ~completed err =
   let contents = Contents.make_raw ~raw in
   let lines = contents.lines in
-  let err = (None, 1, Pp.(str "Error in document conversion: " ++ str err)) in
+  let err =
+    (None, Diags.err, Pp.(str "Error in document conversion: " ++ str err))
+  in
   let stats = Stats.dump () in
   let nodes = process_init_feedback ~lines ~stats root [ err ] in
   empty_doc ~uri ~version ~env ~root ~nodes ~completed ~contents
@@ -549,20 +577,26 @@ end = struct
 
   (* Contents-based recovery heuristic, special 'Qed.' case when `Qed.` is part
      of the error *)
-  let extract_qed Lang.Range.{ end_; _ } { Contents.lines; _ } =
+
+  (* This function extracts the last [size] chars from the error, omitting the
+     point *)
+  let extract_token Lang.Range.{ end_; _ } { Contents.lines; _ } size =
     let Lang.Point.{ line; character; _ } = end_ in
     let line = Array.get lines line in
-    if character > 3 && String.length line > 3 then
-      let coff = character - 4 in
-      Some (String.init 3 (fun idx -> line.[idx + coff]))
+    if character > size && String.length line > size then
+      let coff = character - (size + 1) in
+      Some (String.init size (fun idx -> line.[idx + coff]))
     else None
 
   let lex_recovery_heuristic last_tok contents nodes st =
-    match extract_qed last_tok contents with
-    | Some txt when String.equal txt "Qed" ->
-      Io.Log.trace "lex recovery" "qed detected";
+    let et = extract_token last_tok contents in
+    match (et 3, et 7, et 8) with
+    | Some ("Qed" as txt), _, _
+    | _, Some ("Defined" as txt), _
+    | _, _, Some ("Admitted" as txt) ->
+      Io.Log.trace "lex recovery" (txt ^ " detected");
       recovery_for_failed_qed ~default:st nodes |> Coq.Protect.E.map ~f:fst
-    | Some _ | None -> Coq.Protect.E.ok st
+    | _, _, _ -> Coq.Protect.E.ok st
 
   (* AST-based heuristics: Qed, bullets, ... *)
   let ast_recovery_heuristic last_tok contents nodes st v =
@@ -639,10 +673,10 @@ let parse_action ~lines ~st last_tok doc_handle =
       (* We don't have a better alternative :(, usually missing error loc here
          means an anomaly, so we stop *)
       let err_range = last_tok in
-      let parse_diags = [ Diags.make err_range 1 msg ] in
+      let parse_diags = [ Diags.make err_range Diags.err msg ] in
       (EOF (Failed last_tok), parse_diags, feedback, time)
     | Error (User (Some err_range, msg)) ->
-      let parse_diags = [ Diags.make err_range 1 msg ] in
+      let parse_diags = [ Diags.make err_range Diags.err msg ] in
       Coq.Parsing.discard_to_dot doc_handle;
       let last_tok = Coq.Parsing.Parsable.loc doc_handle in
       let last_tok_range = Coq.Utils.to_range ~lines last_tok in
@@ -788,7 +822,7 @@ let log_beyond_target last_tok target =
 
 let max_errors_node ~state ~range =
   let msg = Pp.str "Maximum number of errors reached" in
-  let parsing_diags = [ Diags.make range 1 msg ] in
+  let parsing_diags = [ Diags.make range Diags.err msg ] in
   unparseable_node ~range ~parsing_diags ~parsing_feedback:[] ~state
     ~parsing_time:0.0
 
