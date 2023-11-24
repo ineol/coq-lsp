@@ -170,3 +170,7 @@ let lsp_point_to_doc_point ~(doc : Fleche.Doc.t) point =
   let s = Array.get doc.contents.lines line in
   let char = Coq.Utf8.get_byte_offset_from_utf16_pos s char in
   (line, char)
+
+let doc_point_to_lsp_point ~(doc : Fleche.Doc.t) point =
+  (* TODO *)
+  ()
