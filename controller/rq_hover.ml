@@ -233,7 +233,8 @@ let hover ~doc ~point =
   let point0 = point in
   let point = lsp_point_to_doc_point ~doc point in
   let node = Info.LC.node ~doc ~point Exact in
-  let range = Option.map Doc.Node.range node in
+  let range = Option.map (Doc.Node.range ) node in
+  let range = Option.map (doc_range_to_lsp_range ~doc) range in
   let hovers = Register.fire ~doc ~point ~node in
   let hovers = (Printf.sprintf "point0 = %d, %d" (fst point0) (snd point0))::hovers in
   let hovers = (Printf.sprintf "point = %d, %d" (fst point) (snd point))::hovers in

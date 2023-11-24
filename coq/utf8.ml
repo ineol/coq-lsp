@@ -240,6 +240,7 @@ let get_unicode_offset_from_utf16_pos line (char : int) =
    with _ -> ());
   !count
 
+
 let%test_unit "utf16 unicode offsets" =
   let testcases =
     [ ("aax", 2, 2)
@@ -255,6 +256,36 @@ let%test_unit "utf16 unicode offsets" =
   List.iter
     (fun (s, i, e) ->
       let res = get_unicode_offset_from_utf16_pos s i in
+        if res != e then
+          failwith (Printf.sprintf "Wrong result: got %d expected %d in test %s" res e s))
+    testcases
+
+let get_utf16_offset_from_unicode_offset line (char : int) =
+  let offset16 = ref 0 in
+  let idx = ref 0 in
+  for _ = 0 to char-1 do
+    let ch = string_get_utf_8_uchar line !idx in
+    let byte_len = uchar_utf_16_byte_length (uchar_utf_decode_uchar ch) in
+    offset16 := !offset16 + byte_len / 2;
+    idx := next line !idx
+  done;
+  !offset16
+
+let%test_unit "unicode utf16 offsets" =
+  let testcases =
+    [ ("aax", 2, 2)
+    ; ("  xoo", 2, 2)
+    ; ("0123", 3, 3)
+    ; ("  𝒞x", 3, 4)
+    ; ("  𝒞x𝒞", 3, 4)
+    ; ("  𝒞∫x", 4, 5)
+    ; ("  𝒞", 2, 2)
+    ; ("∫x.dy", 1, 1)
+    ]
+  in
+  List.iter
+    (fun (s, i, e) ->
+      let res = get_utf16_offset_from_unicode_offset s i in
         if res != e then
           failwith (Printf.sprintf "Wrong result: got %d expected %d in test %s" res e s))
     testcases
