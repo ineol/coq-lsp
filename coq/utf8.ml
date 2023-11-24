@@ -179,18 +179,23 @@ let string_get_utf_8_uchar s i =
 let get_byte_offset_from_utf16_pos line (char : int) =
   let byte_idx = ref 0 in
   let utf16_char_count = ref 0 in
-  while !byte_idx < String.length line && !utf16_char_count < char do
-    let ch = string_get_utf_8_uchar line !byte_idx in
-    byte_idx := next line !byte_idx;
-    let code_unit_count =
-      uchar_utf_16_byte_length (uchar_utf_decode_uchar ch) / 2
-    in
-    utf16_char_count := !utf16_char_count + code_unit_count;
-    ()
-  done;
-  if !byte_idx < String.length line then Some !byte_idx else None
+  let len = String.length line in
+  (try
+     while !utf16_char_count < char do
+       let ch = string_get_utf_8_uchar line !byte_idx in
+       let next_idx = next line !byte_idx in
+       if next_idx >= len then raise Not_found else byte_idx := next_idx;
+       let code_unit_count =
+         uchar_utf_16_byte_length (uchar_utf_decode_uchar ch) / 2
+       in
+       utf16_char_count := !utf16_char_count + code_unit_count;
+       ()
+     done
+   with _ -> ());
+  !byte_idx
 
 let%test_unit "utf16 offsets" =
+  let check_last s i = i < String.length s && next s i == String.length s in
   let testcases_x =
     [ ("aax", 2, true)
     ; ("  xoo", 2, true)
@@ -205,15 +210,12 @@ let%test_unit "utf16 offsets" =
   List.iter
     (fun (s, i, b) ->
       let res = get_byte_offset_from_utf16_pos s i in
-      if b then
-        let res = Option.map (fun i -> s.[i]) res in
-        match res with
-        | Some x when x = 'x' -> ()
-        | Some x ->
+      if b then (
+        let res = s.[res] in
+        if res != 'x' then
           failwith
-            (Printf.sprintf "Didn't find x in test %s : %d, instead: %c" s i x)
-        | None ->
-          failwith (Printf.sprintf "Didn't not find x in test %s : %d" s i)
-      else if res != None then
-        failwith (Printf.sprintf "Shouldn't find x in test %s : %d" s i))
+            (Printf.sprintf "Didn't find x in test %s : %d, instead: %c" s i res))
+      else if not (check_last s res) then
+        failwith
+          (Printf.sprintf "Shouldn't find x in test %s / %d got %d" s i res))
     testcases_x

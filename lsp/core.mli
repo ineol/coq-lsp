@@ -163,3 +163,7 @@ module DocumentDiagnosticReportPartialResult : sig
     }
   [@@deriving to_yojson]
 end
+
+(** Translate an LSP position into a Fleche position, in bytes. If the LSP
+    posiiton is out of bounds, we cap it at the last line/character. *)
+val lsp_point_to_doc_point : doc:Fleche.Doc.t -> int * int -> int * int
