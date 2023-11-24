@@ -194,7 +194,7 @@ let get_byte_offset_from_utf16_pos line (char : int) =
    with _ -> ());
   !byte_idx
 
-let%test_unit "utf16 offsets" =
+let%test_unit "utf16 byte offsets" =
   let check_last s i = i < String.length s && next s i == String.length s in
   let testcases_x =
     [ ("aax", 2, true)
@@ -219,3 +219,42 @@ let%test_unit "utf16 offsets" =
         failwith
           (Printf.sprintf "Shouldn't find x in test %s / %d got %d" s i res))
     testcases_x
+
+let get_unicode_offset_from_utf16_pos line (char : int) =
+  let byte_idx = ref 0 in
+  let count = ref 0 in
+  let utf16_char_count = ref 0 in
+  let len = String.length line in
+  (try
+     while !utf16_char_count < char do
+       let ch = string_get_utf_8_uchar line !byte_idx in
+       let next_idx = next line !byte_idx in
+       if next_idx >= len then raise Not_found else byte_idx := next_idx;
+       let code_unit_count =
+         uchar_utf_16_byte_length (uchar_utf_decode_uchar ch) / 2
+       in
+       utf16_char_count := !utf16_char_count + code_unit_count;
+       count := !count + 1;
+       ()
+     done
+   with _ -> ());
+  !count
+
+let%test_unit "utf16 unicode offsets" =
+  let testcases =
+    [ ("aax", 2, 2)
+    ; ("  xoo", 2, 2)
+    ; ("0123", 4, 3)
+    ; ("  𝒞x", 4, 3)
+    ; ("  𝒞x𝒞", 4, 3)
+    ; ("  𝒞∫x", 5, 4)
+    ; ("  𝒞", 4, 2)
+    ; ("∫x.dy", 1, 1)
+    ]
+  in
+  List.iter
+    (fun (s, i, e) ->
+      let res = get_unicode_offset_from_utf16_pos s i in
+        if res != e then
+          failwith (Printf.sprintf "Wrong result: got %d expected %d in test %s" res e s))
+    testcases

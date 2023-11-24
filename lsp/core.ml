@@ -168,5 +168,5 @@ let lsp_point_to_doc_point ~(doc : Fleche.Doc.t) point =
   (* lines cannot be empty *)
   let line = min (line_count - 1) line in
   let s = Array.get doc.contents.lines line in
-  let char = Coq.Utf8.get_byte_offset_from_utf16_pos s char in
+  let char = Coq.Utf8.get_unicode_offset_from_utf16_pos s char in
   (line, char)
