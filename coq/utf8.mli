@@ -52,7 +52,11 @@ val length : string -> char
     UTF-16 position was out of bounds. *)
 val get_byte_offset_from_utf16_pos : string -> int -> int
 
-(** Get the unicode potition of a code point indexed in UTF-16 code units in a
-    UTF-8 encoded string. Returns the position of the last character if the
-    UTF-16 position was out of bounds. *)
+(** get the unicode potition of a code point indexed in utf-16 code units in a
+    utf-8 encoded string. Returns the position of the last character if the
+    utf-16 position was out of bounds. *)
 val get_unicode_offset_from_utf16_pos : string -> int -> int
+
+(** get the utf16 potition of a code point indexed in unicode code points in a
+    utf-8 encoded string. The position must be in bounds. *)
+val get_utf16_offset_from_unicode_offset : string -> int -> int

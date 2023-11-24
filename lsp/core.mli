@@ -167,3 +167,7 @@ end
 (** Translate an LSP position into a Fleche position, in bytes. If the LSP
     posiiton is out of bounds, we cap it at the last line/character. *)
 val lsp_point_to_doc_point : doc:Fleche.Doc.t -> int * int -> int * int
+
+val doc_point_to_lsp_point : doc:Fleche.Doc.t -> Lang.Point.t -> Lang.Point.t
+
+val doc_range_to_lsp_range : doc:Fleche.Doc.t -> Lang.Range.t -> Lang.Range.t
